@@ -1,0 +1,400 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: MediaDrop API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: media
+    description: Media parsing and downloading
+  - name: downloads
+    description: Download history and management
+  - name: stats
+    description: Platform statistics and analytics
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /media/parse:
+    post:
+      operationId: parseMediaUrl
+      tags: [media]
+      summary: Parse a media URL
+      description: Detects platform and fetches metadata for a given URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParseUrlInput"
+      responses:
+        "200":
+          description: Media metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MediaInfo"
+        "400":
+          description: Invalid URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Unsupported platform
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /downloads:
+    get:
+      operationId: listDownloads
+      tags: [downloads]
+      summary: List download history
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: platform
+          in: query
+          schema:
+            type: string
+        - name: mediaType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of downloads
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DownloadListResponse"
+    post:
+      operationId: createDownload
+      tags: [downloads]
+      summary: Record a download
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DownloadInput"
+      responses:
+        "201":
+          description: Download recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Download"
+
+  /downloads/{id}:
+    get:
+      operationId: getDownload
+      tags: [downloads]
+      summary: Get a single download record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Download record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Download"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteDownload
+      tags: [downloads]
+      summary: Delete a download record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /stats/summary:
+    get:
+      operationId: getStatsSummary
+      tags: [stats]
+      summary: Get platform-wide download statistics
+      responses:
+        "200":
+          description: Stats summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsSummary"
+
+  /stats/recent:
+    get:
+      operationId: getRecentDownloads
+      tags: [stats]
+      summary: Get recent downloads feed
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Recent downloads
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Download"
+
+  /stats/platforms:
+    get:
+      operationId: getPlatformBreakdown
+      tags: [stats]
+      summary: Get download counts grouped by platform
+      responses:
+        "200":
+          description: Platform breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlatformStat"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    ParseUrlInput:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: The media URL to parse
+
+    MediaFormat:
+      type: object
+      required:
+        - id
+        - label
+        - type
+        - extension
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+          description: Human-readable quality label (e.g. "1080p HD", "MP3 320kbps")
+        type:
+          type: string
+          description: "video, audio, or image"
+        extension:
+          type: string
+        quality:
+          type: ["string", "null"]
+        size:
+          type: ["string", "null"]
+          description: Estimated file size
+        url:
+          type: ["string", "null"]
+          description: Direct download URL if available
+
+    MediaInfo:
+      type: object
+      required:
+        - url
+        - platform
+        - mediaType
+        - title
+        - formats
+      properties:
+        url:
+          type: string
+        platform:
+          type: string
+          description: Detected platform (youtube, instagram, tiktok, etc.)
+        mediaType:
+          type: string
+          description: "video, audio, image, or carousel"
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        thumbnail:
+          type: ["string", "null"]
+        duration:
+          type: ["integer", "null"]
+          description: Duration in seconds
+        author:
+          type: ["string", "null"]
+        formats:
+          type: array
+          items:
+            $ref: "#/components/schemas/MediaFormat"
+
+    DownloadInput:
+      type: object
+      required:
+        - url
+        - platform
+        - mediaType
+        - title
+        - format
+        - extension
+      properties:
+        url:
+          type: string
+        platform:
+          type: string
+        mediaType:
+          type: string
+        title:
+          type: string
+        thumbnail:
+          type: ["string", "null"]
+        author:
+          type: ["string", "null"]
+        format:
+          type: string
+          description: Quality label selected
+        extension:
+          type: string
+        fileSize:
+          type: ["string", "null"]
+
+    Download:
+      type: object
+      required:
+        - id
+        - url
+        - platform
+        - mediaType
+        - title
+        - format
+        - extension
+        - createdAt
+      properties:
+        id:
+          type: integer
+        url:
+          type: string
+        platform:
+          type: string
+        mediaType:
+          type: string
+        title:
+          type: string
+        thumbnail:
+          type: ["string", "null"]
+        author:
+          type: ["string", "null"]
+        format:
+          type: string
+        extension:
+          type: string
+        fileSize:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    DownloadListResponse:
+      type: object
+      required:
+        - downloads
+        - total
+      properties:
+        downloads:
+          type: array
+          items:
+            $ref: "#/components/schemas/Download"
+        total:
+          type: integer
+
+    StatsSummary:
+      type: object
+      required:
+        - totalDownloads
+        - totalVideos
+        - totalAudios
+        - totalImages
+        - topPlatform
+        - downloadsToday
+      properties:
+        totalDownloads:
+          type: integer
+        totalVideos:
+          type: integer
+        totalAudios:
+          type: integer
+        totalImages:
+          type: integer
+        topPlatform:
+          type: string
+        downloadsToday:
+          type: integer
+
+    PlatformStat:
+      type: object
+      required:
+        - platform
+        - count
+      properties:
+        platform:
+          type: string
+        count:
+          type: integer
