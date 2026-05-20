@@ -4,14 +4,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-
-// Pages
+import { setBaseUrl } from "@workspace/api-client-react";
 import Home from "@/pages/home";
 import Downloader from "@/pages/downloader";
 import History from "@/pages/history";
 import Pricing from "@/pages/pricing";
 import About from "@/pages/about";
 import NotFound from "@/pages/not-found";
+
+setBaseUrl(import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080");
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,7 +22,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
 function Router() {
   return (
     <div className="min-h-[100dvh] flex flex-col font-sans">
@@ -40,7 +40,6 @@ function Router() {
     </div>
   );
 }
-
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -53,5 +52,4 @@ function App() {
     </QueryClientProvider>
   );
 }
-
 export default App;
